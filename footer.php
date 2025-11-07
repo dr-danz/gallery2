@@ -1,7 +1,7 @@
 	</div><!-- end of gallery_wrapper -->
 
 <div class="gallery_footer">
-Powered by <a href="https://www.phpgallery.com/">PHP Gallery</a>
+Powered by <a href="https://github.com/dr-danz/gallery2/" target="_blank">Gallery2</a>
 &nbsp;|&nbsp;<a href="<?php echo $gallery_url;?>/admin">admin</a>
 <?php if($is_admin){?>
 &nbsp;|&nbsp;<a href="<?php echo $gallery_url;?>/logout">logout</a>

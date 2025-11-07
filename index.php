@@ -6,7 +6,7 @@ include("system_header.php");
 ?>
 <?php include("header.php");?>
 
-<h1>PHP Gallery</h1>
+<h1><?= $settings_page_title ?></h1>
 
 <p class="breadcrumb"><a href="/">home</a> &gt; gallery</p>
 

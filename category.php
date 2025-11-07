@@ -162,7 +162,7 @@ if($is_admin and isset($_FILES["photo_box"]) and $_FILES["photo_box"]["name"]!='
 
 
 $page_title = ucwords($category_display_title);
-$page_description = ucwords($category_display_title)." | Photo Gallery";
+$page_description = ucwords($category_display_title)." | ".$settings_page_title;
 
 ?>
 <?php include("header.php");?>

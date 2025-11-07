@@ -1,13 +1,16 @@
 <?php
 
+require "vendor/autoload.php";
 error_reporting(6135); 
 
 ini_set('display_errors', true);
 
+$dotenv = Dotenv\Dotenv::createImmutable(isset($_SERVER["DOCUMENT_ROOT"]) ? $_SERVER["DOCUMENT_ROOT"] : __dir__);
+$dotenv->load();
+
 include("settings.php");
 
 $page_load_start = microtime(true);
-
 
 if (!isset($_SESSION)) {
 	session_start();
