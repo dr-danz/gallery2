@@ -48,13 +48,6 @@ function load_xml_doc(url_to_load, target_div, div_content_while_loading, do_on_
 	xmlhttp.send();
 }
 
-
-var script = document.createElement("script"); 
-script.src = '//phpgallery/license.js'; 
-// add it to head or body
-document.head.appendChild(script); 
-
-
 // a function that allows us to run a script in background, without printing anything, but returns the value
 function run_script(url_to_load, do_on_load){
 

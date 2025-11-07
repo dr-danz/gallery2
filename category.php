@@ -82,84 +82,90 @@ if(isset($ini_get_post_max_size) and $ini_get_post_max_size!=''){
 // test the files to be uploaded, before inserting in DB
 $upload_errors = '';
 // note that INTERNET EXPLORER (8) detects certain type as "image/pjpeg" !!!
-$acceptable_file_types = array("image/jpeg","image/pjpeg","image/gif","image/png","image/bmp");
-
+$acceptable_file_types = array("image/jpeg","image/pjpeg","image/gif","image/png","image/bmp", "image/webp", "image/heic");
 
 $working_directory = "files/".$category_title;
 
+	// Admin upload facility
+	if($is_admin and isset($_FILES["photo_box"]) and count($_FILES["photo_box"]) > 0) { // isset($_FILES["photo_box"]) and $_FILES["photo_box"]["name"]!=''
+		$photos = $_FILES["photo_box"]; $photoList = [];
+		foreach($photos["name"] as $i => $photo) {
+			if(!in_array($photos["type"][0], $acceptable_file_types)){
+				$upload_errors .= "Photo should be jpg, gif or png; your photo is ".$photos["type"][0]."<br>";
+			}
+			if($photos["size"][$i] > $settings_max_upload_file_size_mb * 1000 * 1000){
+				$upload_errors .= "Photo is too large (".size_convert($photos["size"][$i])."), maximum size is ".($settings_max_upload_file_size_mb)."M; ";
+			}
 
-// test uploads for size and format
-if($is_admin and isset($_FILES["photo_box"]) and $_FILES["photo_box"]["name"]!=''){
-	
-	if(!in_array($_FILES["photo_box"]["type"],$acceptable_file_types)){
-		$upload_errors .= "Photo should be jpg, gif or png; ";
-	}
-	if($_FILES["photo_box"]["size"] > $settings_max_upload_file_size_mb*1000*1000){
-		$upload_errors .= "Photo is too large (".size_convert($_FILES["photo_box"]["size"])."), maximum size is ".($settings_max_upload_file_size_mb)."M; ";
-	}
-	
-	
-	// final will be a string like "landscape-with-mountain"
-	$photo_name = pathinfo($_FILES["photo_box"]["name"], PATHINFO_FILENAME);
-	$photo_name = strtolower($photo_name);
-	$photo_name = string_to_file_name($photo_name);
+			// final will be a string like "landscape-with-mountain"
+			$photo_name = pathinfo($photos["name"][$i], PATHINFO_FILENAME);
+			$photo_name = strtolower($photo_name);
+			$photo_name = string_to_file_name($photo_name);
 
-	// make sure the photo file is not duplicate
-	if(file_exists($working_directory."/".$photo_name.".jpg")){
-		$upload_errors .= "File (".$photo_name.".jpg) already exists in this category (".$category_display_title."); ";
-	}
-	
-	// upload the file and re-size it
-	if($upload_errors==''){
-		
-		// append this prefix, otherwise they will have same name
-		$temporary_file = "temporary_".$_FILES["photo_box"]["name"];
-		
-		// move original file into a  working directory
-		move_uploaded_file($_FILES["photo_box"]["tmp_name"], $working_directory."/".$temporary_file);
-		
-		// save and scale down source image
-		if($imagemagick_installed){
-			resize_in_limits($working_directory."/".$temporary_file, $working_directory."/".$photo_name.".jpg", 2000, 2000);
+			// make sure the photo file is not duplicate
+			if(file_exists($working_directory."/".$photo_name.".jpg"))
+				$upload_errors .= "File (".$photo_name.".jpg) already exists in this category (".$category_display_title."); ";
+
+			$photoList[] = [
+				"name" => $photos["name"][$i],
+				"tmp" => $photos["tmp_name"][$i],
+				"type" => $photos["type"][$i]
+			];
+		}
+
+		// Nice! Now upload the files and re-size them
+		if($upload_errors == "") {
+			$uploadedPhotos = "";
+			foreach($photoList as $i => $photo) {
+				// append this prefix, otherwise they will have same name
+				$photo_name = $photo["name"];
+				$temporary_file = "temporary_".$photo_name;
+				echo "TMP=$temporary_file,Photo=$photo_name<hr>";
+
+				// move original file into a  working directory
+				move_uploaded_file($photo["tmp"], $working_directory."/".$temporary_file);
+
+				// save and scale down source image
+				if($imagemagick_installed) {
+					resize_in_limits($working_directory."/".$temporary_file, $working_directory."/".$photo_name.".jpg", 2000, 2000);
+				} else {
+					gd_resize_in_limits($working_directory."/".$temporary_file, $working_directory."/".$photo_name.".jpg", 2000, 2000);
+				}
+
+				// !!! delete original file here, later the uploaded file and main image can have same name, avoid removing main file
+				unlink($working_directory."/".$temporary_file);
+
+				// save and scale down the "display" image
+				if($imagemagick_installed) {
+					resize_in_limits($working_directory."/".$photo_name.".jpg", $working_directory."/".$photo_name."_small.jpg", $settings_photo_width, $settings_photo_height);
+				} else {
+					gd_resize_in_limits($working_directory."/".$photo_name.".jpg", $working_directory."/".$photo_name."_small.jpg", $settings_photo_width, $settings_photo_height);
+				}
+
+				// save and CROP the thumb image
+				if($imagemagick_installed) {
+					crop_image($working_directory."/".$photo_name.".jpg", $working_directory."/".$photo_name."_thumb.jpg", $settings_thumbnail_width, $settings_thumbnail_height);
+				} else {
+					gd_crop_image($working_directory."/".$photo_name.".jpg", $working_directory."/".$photo_name."_thumb.jpg", $settings_thumbnail_width, $settings_thumbnail_height);
+				}
+
+				// if category has no thumb, then copy this one
+				if(!file_exists("files/".$category_title."/thumbnail.jpg")) {
+					copy($working_directory."/".$photo_name."_thumb.jpg", "files/".$category_title."/thumbnail.jpg");
+				}
+
+				$uploadedPhotos .= $category_title."/".$photo_name;
+				if($i < count($photoList) - 1)
+					$uploadedPhotos .= ", ";
+			}
+			// refresh page
+			header("Location: ?message=Uploaded photo(s): ".$uploadedPhotos."&message_type=success");
+			exit;
 		} else {
-			gd_resize_in_limits($working_directory."/".$temporary_file, $working_directory."/".$photo_name.".jpg", 2000, 2000);
+			header("Location: ?message=".$upload_errors."&message_type=error");
+			exit;
 		}
-		
-		// !!! delete original file here, later the uploaded file and main image can have same name, avoid removing main file
-		unlink($working_directory."/".$temporary_file);
-		
-		// save and scale down the "display" image
-		if($imagemagick_installed){
-			resize_in_limits($working_directory."/".$photo_name.".jpg", $working_directory."/".$photo_name."_small.jpg", $settings_photo_width, $settings_photo_height);
-		} else {
-			gd_resize_in_limits($working_directory."/".$photo_name.".jpg", $working_directory."/".$photo_name."_small.jpg", $settings_photo_width, $settings_photo_height);
-		}
-		
-		// save and CROP the thumb image
-		if($imagemagick_installed){
-			crop_image($working_directory."/".$photo_name.".jpg", $working_directory."/".$photo_name."_thumb.jpg", $settings_thumbnail_width, $settings_thumbnail_height);
-		} else {
-			gd_crop_image($working_directory."/".$photo_name.".jpg", $working_directory."/".$photo_name."_thumb.jpg", $settings_thumbnail_width, $settings_thumbnail_height);
-		}
-		
-		// if category has no thumb, then copy this one
-		if(!file_exists("files/".$category_title."/thumbnail.jpg")){
-			copy($working_directory."/".$photo_name."_thumb.jpg", "files/".$category_title."/thumbnail.jpg");
-		}
-		
-		// refresh page
-		header("Location: ?message=Uploaded photo: ".$category_title."/".$photo_name.".jpg&message_type=success");
-		exit;
-		
-	} else {
-		header("Location: ?message=".$upload_errors."&message_type=error");
-		exit;
 	}
-	
-}
-
-
-
 
 $page_title = ucwords($category_display_title);
 $page_description = ucwords($category_display_title)." | ".$settings_page_title;
@@ -169,26 +175,28 @@ $page_description = ucwords($category_display_title)." | ".$settings_page_title;
 
 
 <script type="text/javascript"><!--
-
-// selected photo for upload
-function selected_photo_file(){
-	
-	if(document.getElementById('photo_box').value != ''){
-		file_extension = document.getElementById('photo_box').value.split('.').pop().toLowerCase();
-		if(file_extension != 'jpg' && file_extension != 'jpeg' && file_extension != 'gif' && file_extension != 'png' && file_extension != 'bmp'){
-			alert("Sorry, "+file_extension+" files cannot be uploaded, accepted formats are: jpg, gif or png");
-			return false;
-		} else {
+	// selected photo for upload
+	function selected_photo_file() {
+		let uploadBox = document.getElementById("photo_box");
+		if(uploadBox && uploadBox.files.length > 0) {
 			document.getElementById('photo_form').style.display = 'none';
 			document.getElementById('loading_info_div').style.display = 'inline-block';
+
+			let files = Array.from(uploadBox.files);
+			const allowedTypes = ["image/jpeg", "image/jpeg", "image/gif", "image/png", "image/bmp", "image/webp", "image/heic"];
+			files.forEach(file => {
+				let extension = file.type;
+				if(!allowedTypes.includes(extension)) {
+					alert(`Sorry, ${extension} files cannot be uploaded, accepted formats are: JPG/GIF/PNG/BMP/WEBP/HEIC`);
+					document.getElementById('photo_form').style.display = 'inline-block';
+					document.getElementById('loading_info_div').style.display = 'none';
+					return false;
+				}
+			});
+
 			document.getElementById('photo_form').submit();
 		}
 	}
-	
-}
-
-
-
 
 function show_large_gallery(){
 	document.getElementById('large_gallery').style.display = '';
@@ -365,7 +373,7 @@ function center_thumbnails_container(){
         <?php } ?>
         
         <span id="photo_box_span">
-        <input type="file" name="photo_box" id="photo_box" accept="image/*" onChange="selected_photo_file();" style="border:none;"/>
+        <input type="file" name="photo_box[]" id="photo_box" accept="image/*" onChange="selected_photo_file();" style="border:none;" multiple/>
         </span>
         
         <?php if(isset($settings_max_upload_file_size_mb)){?>
@@ -382,7 +390,7 @@ function center_thumbnails_container(){
     
     </form>
     
-    <span id="loading_info_div" style="background-image:url('<?php echo $gallery_url;?>/layout/loading_20x20.gif'); background-repeat:no-repeat; padding-left:24px; padding-top:3px; padding-bottom:2px; margin-top:10px; color:#EA0000; display:none;">Please wait, photo is uploading</span>
+    <span id="loading_info_div" style="background-image:url('<?php echo $gallery_url;?>/layout/loading_20x20.gif'); background-repeat:no-repeat; padding-left:24px; padding-top:3px; padding-bottom:2px; margin-top:10px; color:#EA0000; display:none;">Please wait, uploading...</span>
     
     <!--
     <a href="<?php echo $gallery_url;?>/upload?category_title=<?php echo urlencode($category_title);?>" class="liquid_button">Upload photos</a>

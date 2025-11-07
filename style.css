@@ -42,7 +42,13 @@ h1{
 	text-shadow: 1px 1px #CCCCCC;
 }
 
-a:link, a:visited{
+a {
+	text-decoration: none;
+} a:hover {
+	text-decoration: underline;
+}
+
+a:link, a:visited {
 	color:#11a2e4;
 }
 
@@ -58,7 +64,6 @@ a:link, a:visited{
 
 .gallery_footer a:link, .gallery_footer a:visited{
 	color:#FFF;
-	text-decoration:none;
 }
 
 /* normal liquid button */
@@ -79,6 +84,7 @@ a.liquid_button{
 
 a.liquid_button:hover{
 	background-position:0px -50px;
+	text-decoration:none;
 }
 
 /* disabled liquid button */
